@@ -35,6 +35,24 @@ npm run dev
 
 ---
 
+## Screenshots
+
+### Dashboard
+![Dashboard](./screenshots/dashboard.png)
+
+### HCP Directory
+![HCP Directory](./screenshots/hcp-directory.png)
+
+### Log Interaction
+![Log Interaction](./screenshots/log-interaction.png)
+
+### Interaction Form
+![Interaction Form](./screenshots/interaction-form.png)
+
+### Follow-ups
+![Follow-ups](./screenshots/follow-ups.png)
+
+
 ## Tech Stack
 
 
