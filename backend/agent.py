@@ -117,8 +117,11 @@ tools = [
 ]
 
 # Ensure you have GROQ_API_KEY environment variable set
-def get_llm():
-    return ChatGroq(model_name="gemma2-9b-it", temperature=0)
+def get_llm(api_key: str = None):
+    key = api_key or os.getenv("GROQ_API_KEY")
+    if not key:
+        return None
+    return ChatGroq(model_name="gemma2-9b-it", temperature=0, groq_api_key=key)
 
 def should_continue(state: AgentState) -> str:
     messages = state['messages']
@@ -127,9 +130,15 @@ def should_continue(state: AgentState) -> str:
         return "tools"
     return END
 
-def call_model(state: AgentState):
+def call_model(state: AgentState, config: dict):
     messages = state['messages']
-    llm = get_llm()
+    api_key = config.get("configurable", {}).get("api_key")
+    llm = get_llm(api_key)
+    
+    if not llm:
+        # Fallback to a simple message if the model can't be initialized
+        return {"messages": [AIMessage(content="Error: No GROQ_API_KEY provided. Please set it in Settings to activate the AI Agent.")]}
+        
     # bind tools to llm
     llm_with_tools = llm.bind_tools(tools)
     response = llm_with_tools.invoke(messages)
@@ -149,14 +158,32 @@ def build_graph():
 
 graph = build_graph()
 
-def chat_with_agent(user_input: str, chat_history: List[str] = None):
-    # Check for API key
-    if not os.getenv("GROQ_API_KEY"):
-        # Improved demo mode matching for the user request
+def chat_with_agent(user_input: str, api_key: str = None, chat_history: List[str] = None):
+    # Check for API key in env or passed arg
+    active_key = api_key or os.getenv("GROQ_API_KEY")
+    
+    if not active_key:
+        # Improved demo mode matching using local logic (no LLM required)
         demo_match = ""
-        if "anjali nair" in user_input.lower():
-            demo_match = "\n\n[AUTO_SELECT_HCP: 1]" # Assuming ID 1 for Dr. Anjali Nair in demo
-        return f"DEMO MODE: I received your message: \"{user_input}\". {demo_match}"
+        user_input_lower = user_input.lower()
+        
+        # Simple extraction logic for the demo without an LLM
+        db = SessionLocal()
+        try:
+            hcps = crud.get_hcps(db)
+            matched_hcp = None
+            for hcp in hcps:
+                if hcp.name.lower() in user_input_lower:
+                    matched_hcp = hcp
+                    break
+            
+            if matched_hcp:
+                demo_match = f"\n\n[AUTO_SELECT_HCP: {matched_hcp.id}]"
+                return f"DEMO MODE: I've identified **{matched_hcp.name}** in your message and auto-selected them for you. {demo_match}"
+            
+            return f"DEMO MODE: I received your message: \"{user_input}\". Please provide a GROQ_API_KEY in Settings to enable the full AI experience."
+        finally:
+            db.close()
 
     # Setup initial messages
     messages = [
@@ -167,16 +194,17 @@ def chat_with_agent(user_input: str, chat_history: List[str] = None):
         Example: 'I've found Dr. Smith. [AUTO_SELECT_HCP: 5]'
         """)
     ]
-
-    if chat_history:
-        # Simplistic mapping of history
-        pass # In a real app we'd load previous messages
-        
+    
     messages.append(HumanMessage(content=user_input))
     
     try:
-        final_state = graph.invoke({"messages": messages})
+        # Pass the api_key via config so the node can access it
+        final_state = graph.invoke(
+            {"messages": messages},
+            config={"configurable": {"api_key": active_key}}
+        )
         return final_state["messages"][-1].content
     except Exception as e:
         return f"Error invoking AI transition: {str(e)}. (Note: Ensure your GROQ_API_KEY is valid and has sufficient quota)."
+
 

@@ -24,6 +24,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
+    api_key: str = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -49,7 +50,7 @@ def create_interaction(interaction: schemas.InteractionCreate, db: Session = Dep
 @app.post("/api/chat/", response_model=ChatResponse)
 def process_chat(request: ChatRequest):
     try:
-        reply = chat_with_agent(request.message)
+        reply = chat_with_agent(request.message, api_key=request.api_key)
         return ChatResponse(response=reply)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
