@@ -77,10 +77,7 @@ const InteractionForm = () => {
       alert("Please select a Healthcare Professional first.");
       return;
     }
-    if (new Date(formData.date_time) < new Date()) {
-       setDateError('Cannot log an interaction with a past date/time.');
-       return;
-    }
+
 
     const payload = {
       hcp_id: parseInt(formData.hcp_id),

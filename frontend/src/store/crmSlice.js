@@ -12,15 +12,25 @@ export const fetchInteractions = createAsyncThunk('crm/fetchInteractions', async
   return response.json();
 });
 
-export const processChat = createAsyncThunk('crm/processChat', async (message) => {
-  const response = await fetch(`${API_BASE_URL}/chat/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ message }),
-  });
-  return response.json();
+export const processChat = createAsyncThunk('crm/processChat', async (message, { rejectWithValue }) => {
+  try {
+    const apiKey = localStorage.getItem('GROQ_API_KEY');
+    const response = await fetch(`${API_BASE_URL}/chat/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message, api_key: apiKey }),
+    });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      return rejectWithValue(data.detail || 'Failed to process chat');
+    }
+    return data;
+  } catch (error) {
+    return rejectWithValue(error.message);
+  }
 });
 
 export const logInteractionForm = createAsyncThunk('crm/logInteractionForm', async (data) => {
